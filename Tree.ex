@@ -43,9 +43,46 @@ defmodule Tree do
             end
           end
         end
+      {:broadconvergecast,tree,i,caller}->
+        if not hayHijoIzq(i,tree) do
+          this=self()
+          if rem(i,2)==0 do
+            send(Map.fetch!(tree,div(i-2,2)),{:broadconvergecast,tree,div(i-2,2),caller,[this]})
+          else
+            send(Map.fetch!(tree,div(i-1,2)),{:broadconvergecast,tree,div(i-1,2),caller,[this]})
+          end
+        else
+          send(Map.fetch!(tree,(2*i)+1),{:broadconvergecast, tree, (2*i)+1, caller})
+          if hayHijoDer(i,tree) do
+            send(Map.fetch!(tree,(2*i)+2),{:broadconvergecast, tree, (2*i)+2, caller})
+            loop2(2,[])
+          else 
+            loop2(1,[])
+          end
+        end
       end
     end
 
+    defp loop2(n,acc) do
+      receive do
+        {:broadconvergecast,tree,i,caller,acum}->
+          n=n-1
+          if n==0 do
+            this=self()
+            if i==0 do
+              send(caller,{:acabe,acc++acum++[this]})
+            else
+              if rem(i,2)==0 do
+                send(Map.fetch!(tree,div(i-2,2)),{:broadconvergecast,tree,div(i-2,2),caller,acc++acum++[this]})
+              else
+                send(Map.fetch!(tree,div(i-1,2)),{:broadconvergecast,tree,div(i-1,2),caller,acc++acum++[this]})
+              end
+            end
+          else
+            loop2(n,acum)
+          end
+      end
+    end
 
   defp hayHijoIzq(ind, tree) do
     Map.has_key?(tree,2*ind+1)
@@ -110,4 +147,13 @@ defmodule Tree do
     :ok
   end
   
+
+  def broadconvergecast(tree) do
+    pid=self()
+    send(Map.fetch!(tree,0),{:broadconvergecast,tree,0,pid})
+    receive do
+      {:acabe,l}->{:ok,l}
+    end
+  end
+
 end
