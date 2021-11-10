@@ -1,35 +1,34 @@
 defmodule Graph do
 
   def new(n) do
-    control = spawn(fn -> controller(%{}, n) end)
     create_graph(Enum.map(1..n, fn _ ->
       spawn(fn ->
-        loop(-1, control)
+        loop(-1)
       end)
     end), %{}, n)
   end
 
-  defp loop(state, controller) do
+  defp loop(state) do
     receive do
       {:bfs, graph, new_state} ->
-        if new_state > state and state != -1 do
-          send(controller, {:done, self(), state});
-          Process.sleep(5000)
-        else
-          state =
-            cond do
-              new_state < state -> new_state
-              state == -1 -> new_state
-              true -> state
-            end
-          vecinos = Map.get(graph, self())
-          Enum.map(vecinos, fn vecino -> send(vecino, {:bfs, graph, state + 1}) end)
-          loop(state, controller)
-        end
+        state =
+          cond do
+            new_state < state -> new_state
+            state == -1 -> new_state
+            true -> state
+          end
+        vecinos = Map.get(graph, self())
+        Enum.map(vecinos, fn vecino -> send(vecino, {:bfs, graph, state + 1})end)
+        loop(state)
       {:dfs, graph, new_state} -> :ok
       {:get_state, caller} -> #Estos mensajes solo los manda el main.
-
-        send(caller, {self, state})
+        if state == -1 do
+          Process.sleep(5000)
+          send(self, {:get_state, caller})
+          loop(state)
+        else
+          send(caller, {self, state})
+        end
     end
   end
 
@@ -73,21 +72,25 @@ defmodule Graph do
   def bfs(graph, src) do
     IO.puts("START:")
     IO.puts(inspect(src))
-
     send(src, {:bfs, graph, 0})
-
+    get_states(0, map_size(graph), Map.keys(graph))
+    receiver([], map_size(graph))
   end
 
-  def controller(map, n) do #solo para mostrar los procesos cuando ya terminen
+  def get_states(count, n, nodes) do
+    if count < n do
+      send(Enum.at(nodes, count), {:get_state, self})
+      get_states(count + 1, n, nodes)
+    end
+  end
+
+  def receiver(list, n) do #solo para mostrar los procesos cuando ya terminen
     receive do
-      {:done, process, state} ->
-        new = Map.put(map, process, state)
-        IO.puts(inspect(process))
-        IO.puts state
-        if map_size(new) == n do
-          IO.puts("termin[e]")
+      {process, state} ->
+        if (length(list) + 1) == n do
+          list ++ [{process, state}]
         else
-          controller(new, n)
+          receiver(list ++ [{process, state}], n)
         end
     end
   end
