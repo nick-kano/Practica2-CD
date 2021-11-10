@@ -18,33 +18,68 @@ defmodule Tree do
       {:convergecast, tree, i, caller} ->
         if i==0 do
           send(caller,{:acabe,self()})
-        end
-        if not hayHijoIzq(i, tree) do
-          if rem(i,2)==0 do
-            send(Map.fetch!(tree,(i-2)/2),{:convergecast,tree,(i-2)/2,caller})
+        else
+          if not hayHijoIzq(i, tree) do
+            sendPadre(tree,i,caller)
           else
-            send(Map.fetch!(tree,(i-1)/2),{:convergecast,tree,(i-1)/2,caller})
+            if not hayHijoDer(i, tree) do
+              sendPadre(tree,i,caller)
+            else
+              receive do
+                {:convergecast, tree, i, caller} -> 
+                  sendPadre(tree,i,caller)
+              end
+            end
           end
         end
-        if not hayHijoDer(i, tree) do
+      {:broadconvergecast,tree,i,caller}->
+        if not hayHijoIzq(i,tree) do
+          this=self()
           if rem(i,2)==0 do
-            send(Map.fetch!(tree,(i-2)/2),{:convergecast,tree,(i-2)/2,caller})
+            send(Map.fetch!(tree,div(i-2,2)),{:broadconvergecast,tree,div(i-2,2),caller,[this]})
           else
-            send(Map.fetch!(tree,(i-1)/2),{:convergecast,tree,(i-1)/2,caller})
+            send(Map.fetch!(tree,div(i-1,2)),{:broadconvergecast,tree,div(i-1,2),caller,[this]})
           end
         else
-          receive do
-            {:convergecast, tree, i, caller} -> 
-              if rem(i,2)==0 do
-                send(Map.fetch!(tree,(i-2)/2),{:convergecast,tree,(i-2)/2,caller})
-              else
-                send(Map.fetch!(tree,(i-1)/2),{:convergecast,tree,(i-1)/2,caller})
-              end
+          send(Map.fetch!(tree,(2*i)+1),{:broadconvergecast, tree, (2*i)+1, caller})
+          if hayHijoDer(i,tree) do
+            send(Map.fetch!(tree,(2*i)+2),{:broadconvergecast, tree, (2*i)+2, caller})
+            loop2(2,[])
+          else 
+            loop2(1,[])
           end
         end
       end
     end
 
+    defp sendPadre(tree,i,caller) do
+      if rem(i,2)==0 do
+        send(Map.fetch!(tree,div(i-2,2)),{:convergecast,tree,div(i-2,2),caller})
+      else
+        send(Map.fetch!(tree,div(i-1,2)),{:convergecast,tree,div(i-1,2),caller})
+      end
+    end
+
+    defp loop2(n,acc) do
+      receive do
+        {:broadconvergecast,tree,i,caller,acum}->
+          n=n-1
+          if n==0 do
+            this=self()
+            if i==0 do
+              send(caller,{:acabe,acc++acum++[this]})
+            else
+              if rem(i,2)==0 do
+                send(Map.fetch!(tree,div(i-2,2)),{:broadconvergecast,tree,div(i-2,2),caller,acc++acum++[this]})
+              else
+                send(Map.fetch!(tree,div(i-1,2)),{:broadconvergecast,tree,div(i-1,2),caller,acc++acum++[this]})
+              end
+            end
+          else
+            loop2(n,acum)
+          end
+      end
+    end
 
   defp hayHijoIzq(ind, tree) do
     Map.has_key?(tree,2*ind+1)
@@ -85,8 +120,11 @@ defmodule Tree do
   end
 
   def convergecast(tree, n) do
-    {:ok,pid}=Task.start(fn -> mensaje() end)
-    mandarHojas(listaHojas(n,div(n+1,2)), tree, pid)
+    this=self()
+    mandarHojas(listaHojas(n,div(n+1,2)), tree, this)
+    receive do
+      {:acabe,pid}->{:ok,pid}
+    end
   end
 
   defp listaHojas(size, 1) do
@@ -102,13 +140,17 @@ defmodule Tree do
     mandarHojas(xs, tree, pid)
   end
 
-  defp mandarHojas(x, tree, pid)do
-    send(Map.fetch!(tree,x),{:convergecast, tree, x, pid})
+  defp mandarHojas([],_,_)do
+    :ok
   end
   
-  defp mensaje() do
+
+  def broadconvergecast(tree) do
+    pid=self()
+    send(Map.fetch!(tree,0),{:broadconvergecast,tree,0,pid})
     receive do
-      {:acabe, _}->:convergecast_over
+      {:acabe,l}->{:ok,l}
     end
   end
+
 end
