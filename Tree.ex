@@ -49,6 +49,26 @@ defmodule Tree do
             loop2(1,[])
           end
         end
+      {:convergebroadcast,tree,i,caller}->
+        if i==0 do
+          cbc(tree,i,caller)
+        else
+          if not hayHijoIzq(i,tree) do 
+            sendPadrecbc(tree,i,caller)
+            cbc(tree,i,caller)
+          else
+            if not hayHijoDer(i,tree) do
+              sendPadrecbc(tree,i,caller)
+              cbc(tree,i,caller)
+            else
+              receive do
+                {:convergebroadcast,tree,i,caller}->
+                  sendPadrecbc(tree,i,caller)
+                  cbc(tree,i,caller)
+              end
+            end
+          end
+        end
       end
     end
 
@@ -57,6 +77,14 @@ defmodule Tree do
         send(Map.fetch!(tree,div(i-2,2)),{:convergecast,tree,div(i-2,2),caller})
       else
         send(Map.fetch!(tree,div(i-1,2)),{:convergecast,tree,div(i-1,2),caller})
+      end
+    end
+
+    defp sendPadrecbc(tree,i,caller) do
+      if rem(i,2)==0 do
+        send(Map.fetch!(tree,div(i-2,2)),{:convergebroadcast,tree,div(i-2,2),caller})
+      else
+        send(Map.fetch!(tree,div(i-1,2)),{:convergebroadcast,tree,div(i-1,2),caller})
       end
     end
 
@@ -99,8 +127,8 @@ defmodule Tree do
 
   def broadcast(tree, n) do
     numHojas=div((n+1),2)
-    myPID=self()
-    {:ok,pid}=Task.start(fn -> mensajes(numHojas,[],myPID) end)
+    this=self()
+    {:ok,pid}=Task.start(fn -> mensajes(numHojas,[],this) end)
     send(Map.fetch!(tree,0),{:broadcast, tree, 0, pid})
     receive do
       {:acabe ,l}->l
@@ -146,11 +174,53 @@ defmodule Tree do
   
 
   def broadconvergecast(tree) do
-    pid=self()
-    send(Map.fetch!(tree,0),{:broadconvergecast,tree,0,pid})
+    this=self()
+    send(Map.fetch!(tree,0),{:broadconvergecast,tree,0,this})
     receive do
       {:acabe,l}->{:ok,l}
     end
   end
 
+  def convergebroadcast(tree,n) do
+    numHojas=div((n+1),2)
+    this=self()
+    {:ok,pid}=Task.start(fn -> mensajes(numHojas+1,[],this) end)
+    mandarHojascbc(listaHojas(n,div(n+1,2)), tree, pid)
+    receive do
+      {:acabe,l}->l
+    end
+  end
+
+  defp cbc(tree, i, caller) do
+    if i==0 do
+      send(caller,{:acabe,self()})
+      if hayHijoIzq(i,tree) do
+        send(Map.fetch!(tree,(2*i)+1),{:cbc, tree, (2*i)+1, caller})
+        if hayHijoDer(i,tree) do
+          send(Map.fetch!(tree,(2*i)+2),{:cbc, tree, (2*i)+2, caller})
+        end
+      end
+    else
+      receive do
+      {:cbc, tree, i, caller} ->
+        if not hayHijoIzq(i,tree) do
+          send(caller,{:acabe,self()})
+        else
+          send(Map.fetch!(tree,(2*i)+1),{:cbc, tree, (2*i)+1, caller})
+          if hayHijoDer(i,tree) do
+            send(Map.fetch!(tree,(2*i)+2),{:cbc, tree, (2*i)+2, caller})
+          end
+        end
+      end
+    end
+  end
+
+  defp mandarHojascbc([x|xs], tree, pid) do
+    send(Map.fetch!(tree,x),{:convergebroadcast, tree, x, pid})
+    mandarHojascbc(xs, tree, pid)
+  end
+
+  defp mandarHojascbc([],_,_)do
+    :ok
+  end
 end
