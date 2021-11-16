@@ -20,7 +20,15 @@ defmodule Graph do
         vecinos = Map.get(graph, self())
         Enum.map(vecinos, fn vecino -> send(vecino, {:bfs, graph, state + 1})end)
         loop(state)
-      {:dfs, graph, new_state} -> :ok
+      {:dfs, graph, new_state} ->
+        if (state == -1) do
+          state = new_state
+          vecinos = Map.get(graph, self())
+          Enum.map(vecinos, fn x ->
+            send(x, {:bfs, graph, new_state+1})
+          end)
+        end
+        loop(state)
       {:get_state, caller} -> #Estos mensajes solo los manda el main.
         if state == -1 do
           Process.sleep(5000)
@@ -100,7 +108,11 @@ defmodule Graph do
   end
 
   def dfs(graph, src) do
-    :ok
+    IO.puts("START:")
+    IO.puts(inspect(src))
+    send(src, {:dfs, graph, 0})
+    get_states(0, map_size(graph), Map.keys(graph))
+    receiver([], map_size(graph))
   end
 
   def dfs(graph) do
