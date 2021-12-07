@@ -74,9 +74,16 @@ defmodule Consensus do
   # todos los hilos.
   def consensus(processes) do
 
-    # Creamos tantos procesos como se indica en la función,
-    # y almacenamos en una lista "l" los PID's.
-    l = create_consensus(processes)
+    # Si "processes" es un número, llamamos a
+    # "create_consensus" para crear tantos
+    # procesos como se indique. Si "processes"
+    # es una lista, simplemente guardamos la lista.
+    # Al final, la lista "l" almacena la lista con
+    # los PID's de los procesos a participar.
+    l = cond do
+      is_number(processes) -> create_consensus(processes)
+      is_list(processes) -> processes
+    end
 
     # Le decimos a cada proceso quiénes son sus vecinos.
     # Estamos creando una gráfica completa.
