@@ -7,8 +7,8 @@ Jean Durán Villanueva				316032416
 
 --- EJECUCIÓN DEL PROGRAMA ---
 1) Dentro de la carpeta "src", ejecutar el
-archivo "Consensus.ex" desde el intérprete
-de Elixir mediante el comando "iex Consensus.ex".
+archivo "Consensus.exs" desde el intérprete
+de Elixir mediante el comando "iex Consensus.exs".
 
 2) Ejecutar la función "Consensus.consensus(n)",
 en donde "n" es el número de procesos a pariticipar
@@ -16,11 +16,11 @@ durante el consenso.
 
 --- EJECUCIÓN DE LAS PRUEBAS ---
 1) Dentro de la carpeta "src", compilar el
-archivo "Consensus.ex" mediante el comando
-"elixirc Consensus.ex"
+archivo "Consensus.exs" mediante el comando
+"elixirc Consensus.exs"
 
 2) Ejecutar las pruebas mediante el comando
-"elixir ConsensusTests.ex".
+"elixir ConsensusTests.exs".
 
 --- NOTAS ---
 * Si se desea más información durante la ejecución
