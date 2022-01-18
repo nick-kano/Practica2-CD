@@ -25,13 +25,15 @@ defmodule SlidingWindow do
   defp sender_loop2(package,n,k,received)do
     receive do
       {:got,id,recvr}->received=List.replace_at(received,id,1)
-                 window_at=next_position(received,0)
-                 send_pck(package,window_at,k,n,recvr)
-                 if window_at>=n do
-                   send(recvr,{:finish})
-                 else                             
+                  window_at=next_position(received,0)
+                  send_pck(package,window_at,k,n,recvr)
+                  if window_at<n do                    
                     sender_loop2(package,n,k,received)
-                 end
+                  else
+                    receive do
+                      {:finish,pid}->send(pid,{package})
+                    end
+                  end
     end
   end
 
@@ -64,7 +66,7 @@ defmodule SlidingWindow do
     receive do
       {:pack,id,v}->send(sender,{:got,id,this})
                     build_pck(sender,Map.put(map,id,v))
-      {:finish}-> IO.inspect(map)
+      {:finish,pid}->send(pid,{map})
     end
   end
 end
